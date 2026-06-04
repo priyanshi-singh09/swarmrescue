@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 
 const GRID_SIZE = 20;
 const WS_URL = "ws://localhost:8000/ws";
