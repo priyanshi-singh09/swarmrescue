@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import * as THREE from "three";
 
 const GRID_SIZE = 20;
 const WS_URL = "ws://localhost:8000/ws";
@@ -35,93 +34,40 @@ function useSwarmSocket() {
 }
 
 function RescueMap({ drones }) {
-  const mountRef = useRef(null);
-  const droneMeshesRef = useRef(new Map());
-  const sceneRef = useRef(null);
+  const cells = useMemo(
+    () => Array.from({ length: GRID_SIZE * GRID_SIZE }, (_, index) => index),
+    []
+  );
 
-  useEffect(() => {
-    const mount = mountRef.current;
-    const scene = new THREE.Scene();
-    scene.background = new THREE.Color("#10151f");
-    sceneRef.current = scene;
+  return (
+    <div className="map-stage" aria-label="Rescue grid map">
+      <div className="map-grid">
+        {cells.map((cell) => {
+          const x = cell % GRID_SIZE;
+          const y = Math.floor(cell / GRID_SIZE);
+          const dronesHere = drones.filter((drone) => drone.x === x && drone.y === y);
+          const primaryDrone = dronesHere[0];
+          const style = primaryDrone
+            ? detectionStyles[primaryDrone.detected] ?? detectionStyles.clear
+            : null;
 
-    const camera = new THREE.PerspectiveCamera(45, mount.clientWidth / mount.clientHeight, 0.1, 1000);
-    camera.position.set(17, 24, 24);
-    camera.lookAt(0, 0, 0);
-
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setPixelRatio(window.devicePixelRatio);
-    renderer.setSize(mount.clientWidth, mount.clientHeight);
-    mount.appendChild(renderer.domElement);
-
-    const ambientLight = new THREE.AmbientLight("#ffffff", 0.75);
-    const directionalLight = new THREE.DirectionalLight("#ffffff", 1.2);
-    directionalLight.position.set(4, 10, 8);
-    scene.add(ambientLight, directionalLight);
-
-    const grid = new THREE.GridHelper(GRID_SIZE, GRID_SIZE, "#64748b", "#233044");
-    scene.add(grid);
-
-    const rubbleMaterial = new THREE.MeshStandardMaterial({ color: "#384152", roughness: 0.8 });
-    for (let i = 0; i < 28; i += 1) {
-      const block = new THREE.Mesh(
-        new THREE.BoxGeometry(0.6, randomBetween(0.25, 1.4), 0.6),
-        rubbleMaterial
-      );
-      block.position.set(randomBetween(-9, 9), block.geometry.parameters.height / 2, randomBetween(-9, 9));
-      scene.add(block);
-    }
-
-    function handleResize() {
-      camera.aspect = mount.clientWidth / mount.clientHeight;
-      camera.updateProjectionMatrix();
-      renderer.setSize(mount.clientWidth, mount.clientHeight);
-    }
-
-    function animate() {
-      renderer.render(scene, camera);
-      requestAnimationFrame(animate);
-    }
-
-    window.addEventListener("resize", handleResize);
-    animate();
-
-    return () => {
-      window.removeEventListener("resize", handleResize);
-      renderer.dispose();
-      mount.removeChild(renderer.domElement);
-    };
-  }, []);
-
-  useEffect(() => {
-    const scene = sceneRef.current;
-    if (!scene) return;
-
-    drones.forEach((drone) => {
-      const existing = droneMeshesRef.current.get(drone.drone_id);
-      const style = detectionStyles[drone.detected] ?? detectionStyles.clear;
-
-      if (existing) {
-        existing.material.color.set(style.color);
-        existing.position.set(drone.x - GRID_SIZE / 2, drone.z + 0.45, drone.y - GRID_SIZE / 2);
-        return;
-      }
-
-      const mesh = new THREE.Mesh(
-        new THREE.SphereGeometry(0.38, 24, 24),
-        new THREE.MeshStandardMaterial({ color: style.color, emissive: style.color, emissiveIntensity: 0.25 })
-      );
-      mesh.position.set(drone.x - GRID_SIZE / 2, drone.z + 0.45, drone.y - GRID_SIZE / 2);
-      scene.add(mesh);
-      droneMeshesRef.current.set(drone.drone_id, mesh);
-    });
-  }, [drones]);
-
-  return <div className="map-stage" ref={mountRef} />;
-}
-
-function randomBetween(min, max) {
-  return Math.random() * (max - min) + min;
+          return (
+            <div className="map-cell" key={cell}>
+              {primaryDrone && (
+                <span
+                  className="drone-dot"
+                  style={{ background: style.color }}
+                  title={`${primaryDrone.drone_id}: ${style.label}`}
+                >
+                  {primaryDrone.drone_id.replace("drone_", "D")}
+                </span>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 export default function App() {
